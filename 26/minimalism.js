@@ -1,6 +1,10 @@
 "use strict";
 
-var ARGS = flexo.get_args({ margin: 0, size: 100, player: 0x2779e });
+// Use hash for level setting
+// Rotation
+
+var ARGS = flexo.get_args({ margin: 0, size: 100, player: 0x2779e,
+  level: 0 });
 
 var SHAPES = ["block", "spikes", "ladder"];
 
@@ -24,10 +28,34 @@ function make_star(x, y) {
       dur: "7s", repeatCount: "indefinite" }));
 }
 
-function init_level(rows, p, s) {
+function init_level(rows, p, s, a) {
   ROOT.setAttribute("viewBox", "%0 %0 %1 %1"
       .fmt(-ARGS.margin, rows.length * ARGS.size + 2 * ARGS.margin));
-  ROOT._p = p;
+
+  var args = Array.prototype.slice.call(arguments, 0, 3).map(function (a) {
+    return a.slice();
+  });
+  for (var i = 0; i < a; ++i) {
+    var rows_ = [];
+    for (var y = 0; y < rows.length; ++y) {
+      rows_[y] = "";
+      for (var x = 0; x < rows.length; ++x) {
+        // rows_[y] += rows[x][rows.length - y - 1];
+        var c = rows[x][rows.length - y - 1];
+        var j = parseInt(c, 16);
+        if (isNaN(j)) {
+          rows_[y] += c;
+        } else {
+          j = (j & 12) | (((j & 3) + 3) % 4)
+          rows_[y] += j.toString(16);
+        }
+      }
+    }
+    rows = rows_;
+    p = [p[1], rows.length - p[0] - 1];
+    s = [s[1], rows.length - s[0] - 1];
+  }
+
   flexo.remove_children(FG);
   flexo.remove_children(SPRITES);
   rows.forEach(function (row, y) {
@@ -97,6 +125,7 @@ function init_level(rows, p, s) {
   var win = function () {
     if (!ROOT._player._dead && x === s[0] && y === s[1]) {
       alert("YES!");
+      init_level.apply(this, LEVELS[++ARGS.level]);
     }
   };
 
@@ -111,6 +140,9 @@ function init_level(rows, p, s) {
     ROOT._player.setAttribute("y", y * ARGS.size);
     if (ROOT._player._dead) {
       alert("OH NOES!");
+      init_level.apply(this, LEVELS[ARGS.level]);
+    } else {
+      win();
     }
   };
   Object.defineProperty(ROOT._player, "_y", {
@@ -137,27 +169,64 @@ function init_level(rows, p, s) {
       win();
     }
   });
+
+  ROOT._rotate = function (da) {
+    args[1] = [x, y];
+    args.push(((a || 0) + da + 4) % 4);
+    init_level.apply(this, args);
+  }
+
+  fall();
 }
 
-init_level([
-  "66666666",
-  "        ",
-  "        ",
-  "        ",
-  "88888   ",
-  " 6 886 4",
-  "4  88 70",
-  "05 8  70",
-], [4, 7], [3, 3]);
+
+var LEVELS = [
+  [[
+    "66666666",
+    "        ",
+    "        ",
+    "        ",
+    "8888    ",
+    "   8   4",
+    "4  8  70",
+    "05 8  70",
+  ], [4, 7], [3, 3]],
+  [[
+    "66666666",
+    "        ",
+    "        ",
+    "        ",
+    "8888    ",
+    "   8   4",
+    "4  8  70",
+    "05 8  70",
+  ], [4, 7], [0, 3]],
+  [[
+    "66666666",
+    "        ",
+    "        ",
+    "        ",
+    "   8    ",
+    "   8   4",
+    "4  8  70",
+    "05 8  70",
+  ], [4, 7], [0, 3]],
+];
+
+init_level.apply(this, LEVELS[ARGS.level]);
 
 document.addEventListener("keydown", function (e) {
-  if (e.keyCode === 37) {
+  if (e.keyCode === 37) {        // left
     --ROOT._player._x;
-  } else if (e.keyCode === 38) {
+  } else if (e.keyCode === 38) { // up
     --ROOT._player._y;
-  } else if (e.keyCode === 39) {
+  } else if (e.keyCode === 39) { // right
     ++ROOT._player._x;
-  } else if (e.keyCode === 40) {
+  } else if (e.keyCode === 40) { // down
     ++ROOT._player._y;
+  } else if (e.keyCode === 88) { // X
+    ROOT._rotate(-1);
+  } else if (e.keyCode === 89 || e.keyCode === 90) { // Y, Z
+    ROOT._rotate(1);
   }
 }, false);
