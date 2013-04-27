@@ -1,10 +1,6 @@
 "use strict";
 
-// Use hash for level setting
-// Rotation
-
-var ARGS = flexo.get_args({ margin: 0, size: 100, player: 0x2779e,
-  level: 0 });
+var ARGS = flexo.get_args({ margin: 0, size: 100, player: 0x2779e });
 
 var SHAPES = ["block", "spikes", "ladder"];
 
@@ -125,7 +121,8 @@ function init_level(rows, p, s, a) {
   var win = function () {
     if (!ROOT._player._dead && x === s[0] && y === s[1]) {
       alert("YES!");
-      init_level.apply(this, LEVELS[++ARGS.level]);
+      window.location.hash = ((LEVEL + 1) % LEVELS.length).toString();
+      window.location.reload(true);
     }
   };
 
@@ -138,6 +135,9 @@ function init_level(rows, p, s, a) {
       }
     }
     ROOT._player.setAttribute("y", y * ARGS.size);
+    if (rows[y][x] === "4" || rows[y][x] === "5" || rows[y][x] === "7") {
+      ROOT._player._dead = true;
+    }
     if (ROOT._player._dead) {
       alert("OH NOES!");
       init_level.apply(this, LEVELS[ARGS.level]);
@@ -213,7 +213,10 @@ var LEVELS = [
   ], [4, 7], [0, 3]],
 ];
 
-init_level.apply(this, LEVELS[ARGS.level]);
+var LEVEL = flexo.clamp(parseInt(window.location.hash.substr(1), 10),
+      0, LEVELS.length - 1);
+
+init_level.apply(this, LEVELS[LEVEL]);
 
 document.addEventListener("keydown", function (e) {
   if (e.keyCode === 37) {        // left
