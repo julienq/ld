@@ -1,6 +1,48 @@
 "use strict";
 
-var ARGS = flexo.get_args({ margin: 0, size: 100, player: 0x2779e });
+var ARGS = flexo.get_args({ margin: 0, size: 100, player: 0x2779e, dur: 90 });
+
+var Scheduler = {};
+
+function scheduler() {
+  var s = Object.create(Scheduler);
+  s.t = Date.now();
+  s.queue = [];
+  s.on = [];
+  s.__tick = s.tick.bind(s);
+  s.__tick();
+  return s;
+}
+
+Scheduler.event = function (event) {
+  this.queue.push(event);
+};
+
+Scheduler.ramp = function (ramp) {
+  this.queue.push(function () {
+    this.on.push({ begin: this.t, ramp: ramp });
+  }.bind(this));
+};
+
+Scheduler.tick = function () {
+  var dt = Date.now() - this.t;
+  this.t += dt;
+  if (this.on.length === 0 && this.queue.length > 0) {
+    this.queue.shift()();
+  }
+  this.on.forEach(function (on) {
+    var p = (this.t - on.begin) / on.ramp.dur;
+    if (p >= 0 && p < 1) {
+      on.ramp.f(p);
+    }
+    if (p >= 1) {
+      on.ramp.f(1);
+      flexo.remove_from_array(this.on, on);
+    }
+  }, this);
+  flexo.request_animation_frame(this.__tick);
+};
+
 
 var SHAPES = ["block", "spikes", "ladder"];
 
@@ -24,7 +66,10 @@ function make_star(x, y) {
       dur: "7s", repeatCount: "indefinite" }));
 }
 
+var SCHEDULER = scheduler();
+
 function init_level(rows, p, s, a) {
+
   ROOT.setAttribute("viewBox", "%0 %0 %1 %1"
       .fmt(-ARGS.margin, rows.length * ARGS.size + 2 * ARGS.margin));
 
@@ -36,7 +81,6 @@ function init_level(rows, p, s, a) {
     for (var y = 0; y < rows.length; ++y) {
       rows_[y] = "";
       for (var x = 0; x < rows.length; ++x) {
-        // rows_[y] += rows[x][rows.length - y - 1];
         var c = rows[x][rows.length - y - 1];
         var j = parseInt(c, 16);
         if (isNaN(j)) {
@@ -48,7 +92,6 @@ function init_level(rows, p, s, a) {
       }
     }
     rows = rows_;
-    p = [p[1], rows.length - p[0] - 1];
     s = [s[1], rows.length - s[0] - 1];
   }
 
@@ -100,6 +143,15 @@ function init_level(rows, p, s, a) {
   var x = p[0];
   var y = p[1];
 
+  function transition(elem, attr, from, to, dur) {
+    SCHEDULER.ramp({
+      dur: dur,
+      f: function (p) {
+        elem.setAttribute(attr, (from + (to - from) * p));
+      }
+    });
+  };
+
   Object.defineProperty(ROOT._player, "_x", {
     enumerable: true,
     get: function () {
@@ -109,8 +161,8 @@ function init_level(rows, p, s, a) {
       if (x_ < 0 || x_ >= rows.length || is_obstacle(x_, this._y)) {
         return;
       }
+      transition(ROOT._player, "x", x * ARGS.size, x_ * ARGS.size, ARGS.dur);
       x = x_;
-      ROOT._player.setAttribute("x", x * ARGS.size);
       if (!is_ladder(x, y)) {
         fall();
       }
@@ -119,14 +171,18 @@ function init_level(rows, p, s, a) {
   });
 
   var win = function () {
-    if (!ROOT._player._dead && x === s[0] && y === s[1]) {
-      alert("YES!");
-      window.location.hash = ((LEVEL + 1) % LEVELS.length).toString();
-      window.location.reload(true);
+    if (!ROOT._player._dead && !ROOT._player._won && x === s[0] && y === s[1]) {
+      ROOT._player._won = true;
+      SCHEDULER.event(function () {
+        alert("YES!");
+        window.location.hash = ((LEVEL + 1) % LEVELS.length).toString();
+        window.location.reload(true);
+      });
     }
   };
 
   var fall = function () {
+    var y0 = y;
     while (!is_grounded(x, y) && !ROOT._player._dead) {
       if (++y < rows.length) {
         if (rows[y][x] === "4" || rows[y][x] === "5" || rows[y][x] === "7") {
@@ -134,13 +190,16 @@ function init_level(rows, p, s, a) {
         }
       }
     }
-    ROOT._player.setAttribute("y", y * ARGS.size);
+    transition(ROOT._player, "y", y0 * ARGS.size, y * ARGS.size,
+        ARGS.dur * (y - y0));
     if (rows[y][x] === "4" || rows[y][x] === "5" || rows[y][x] === "7") {
       ROOT._player._dead = true;
     }
     if (ROOT._player._dead) {
-      alert("OH NOES!");
-      init_level.apply(this, LEVELS[ARGS.level]);
+      SCHEDULER.event(function () {
+        alert("OH NOES!");
+        init_level.apply(this, LEVELS[LEVEL]);
+      });
     } else {
       win();
     }
@@ -164,14 +223,14 @@ function init_level(rows, p, s, a) {
           return;
         }
       }
+      transition(ROOT._player, "y", y * ARGS.size, y_ * ARGS.size, ARGS.dur);
       y = y_;
-      ROOT._player.setAttribute("y", y_ * ARGS.size);
       win();
     }
   });
 
   ROOT._rotate = function (da) {
-    args[1] = [x, y];
+    args[1] = da > 0 ? [y, rows.length - x - 1] : [rows.length - y - 1, x];
     args.push(((a || 0) + da + 4) % 4);
     init_level.apply(this, args);
   }
@@ -228,8 +287,12 @@ document.addEventListener("keydown", function (e) {
   } else if (e.keyCode === 40) { // down
     ++ROOT._player._y;
   } else if (e.keyCode === 88) { // X
-    ROOT._rotate(-1);
+    SCHEDULER.event(function () {
+      ROOT._rotate(-1);
+    });
   } else if (e.keyCode === 89 || e.keyCode === 90) { // Y, Z
-    ROOT._rotate(1);
+    SCHEDULER.event(function () {
+      ROOT._rotate(1);
+    });
   }
 }, false);
