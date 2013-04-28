@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title>Black Hole</title>
+  <rect width="100%" height="100%" fill="#222"/>
+  <svg viewBox="-620 -620 1240 1240">
+    <circle id="hole" fill="#000"/>
+    <text id="score" text-anchor="middle" alignment-baseline="middle"
+      fill="yellow" font-family="Futura, Helvetica, sans-serif"/>
+    <g id="stars"/>
+  </svg>
+  <script xlink:href="flexo.js"/>
+  <script xlink:href="black-hole.js"/>
+</svg>
+
