@@ -240,6 +240,9 @@
     });
   };
 
+  global.generate_set = function (keys) {
+  }
+
   // Creatable objects can be created from a prototype and their init method is
   // called from the create() method.
   global.Creatable = {
