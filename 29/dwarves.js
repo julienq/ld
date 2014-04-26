@@ -20,54 +20,28 @@
   }
 
   function move_dwarves(world, key) {
-    if (key === "right" || key === "left") {
-      var dx = key === "right" ? 1 : -1;
-      world.dwarves.sort(function (a, b) {
-        return (b.x - a.x) * dx || (b.y - a.y);
-      }).forEach(function (dwarf) {
-        var x = dwarf.x + dx;
-        var y = dwarf.y;
-        if (x >= 0 && x < world.w) {
-          if (!world.terrain[y][x][1]) {
-            while (y < world.h && !world.terrain[y + 1][x][0] &&
-              !world.terrain[y + 1][x][1]) {
-              ++y;
-            }
-            world.terrain[dwarf.y][dwarf.x][1] = "";
-            // world.terrain[y][x][0] = "";
-            world.terrain[y][x][1] = "dwarf";
-            dwarf.x = x;
-            dwarf.y = y;
-            dwarf.elem.setAttribute("cx", (dwarf.x + 0.5) * world.sz);
-            dwarf.elem.setAttribute("cy", (dwarf.y + 0.5) * world.sz);
+    var dx = key === "right" ? 1 : key === "left" ? -1 : 0;
+    var dy = key === "down" ? 1 : key === "up" ? -1 : 0;
+    world.dwarves.sort(function (a, b) {
+      return (b.x - a.x) * dx || (b.y - a.y) * dy;
+    }).forEach(function (dwarf) {
+      var x = dwarf.x + dx;
+      var y = dwarf.y + dy;
+      if (x >= 0 && x < world.w && y >= world.sky_h - 1 && y < world.h) {
+        if (!world.terrain[y][x][1]) {
+          world.terrain[dwarf.y][dwarf.x][1] = "";
+          world.terrain[y][x][0] = "";
+          world.terrain[y][x][1] = "dwarf";
+          if (y >= world.sky_h) {
+            world.terrain[y][x][2].setAttribute("fill", "#444");
           }
+          dwarf.x = x;
+          dwarf.y = y;
+          dwarf.elem.setAttribute("cx", (dwarf.x + 0.5) * world.sz);
+          dwarf.elem.setAttribute("cy", (dwarf.y + 0.5) * world.sz);
         }
-      });
-    } else if (key === "down") {
-      var dy = 1;
-      world.dwarves.sort(function (a, b) {
-        return (b.y - a.y) * dy || (a.x - b.x);
-      }).forEach(function (dwarf) {
-        var x = dwarf.x;
-        var y = dwarf.y + dy;
-        if (y > world.sky_h && y < world.h) {
-          if (!world.terrain[y][x][1]) {
-            while (y < world.h && !world.terrain[y + 1][x][0] &&
-              !world.terrain[y + 1][x][1]) {
-              ++y;
-            }
-            world.terrain[dwarf.y][dwarf.x][1] = "";
-            // world.terrain[y][x][0] = "";
-            world.terrain[y][x][1] = "dwarf";
-            dwarf.x = x;
-            dwarf.y = y;
-            dwarf.elem.setAttribute("cx", (dwarf.x + 0.5) * world.sz);
-            dwarf.elem.setAttribute("cy", (dwarf.y + 0.5) * world.sz);
-          }
-
-        }
-      });
-    }
+      }
+    });
   }
 
   function update(dt, keys, world) {
@@ -92,31 +66,32 @@
     world.h = vb.height / world.sz;
     world.sky_h = 2;
 
-    var x_hole = random_int(4, world.w - 5);
-
+    world.tiles = svg.appendChild($g());
     world.terrain = [];
     for (var y = 0; y < world.h; ++y) {
       world.terrain.push([]);
       var ratio = (y - world.sky_h) / (world.h - world.sky_h);
       for (var x = 0; x < world.w; ++x) {
-        world.terrain[y].push(y < world.sky_h ||
-          (y === world.sky_h && x === x_hole) ? ["", ""] : ["dirt", ""]);
+        world.terrain[y].push(y < world.sky_h ? ["", ""] : ["dirt", ""]);
         var color = y < world.sky_h ? palette.blue :
-          y === world.sky_h && x === x_hole ? "#444" :
           ratio < 0.25 ? palette.yellow :
           ratio < 0.5 ? palette.orange :
           ratio < 0.75 ? palette.red : palette.brown;
-        svg.appendChild($rect({ x: x * world.sz, y: y * world.sz,
-          width: world.sz, height: world.sz, fill: color }));
+        world.terrain[y][x][2] = world.tiles.appendChild($rect({
+          x: x * world.sz, y: y * world.sz, width: world.sz, height: world.sz,
+          fill: color }));
       }
     }
 
+    var xs = Urn.create();
+    for (var i = 0; i < world.w; ++i) {
+      xs.add(i);
+    }
     world.dwarves = [];
     var y_dwarves = world.sky_h - 1;
-    var x_dwarves = x_hole > 7 ? 0 : world.w - 1;
-    var x_incr = x_hole > 7 ? 1 : -1;
     for (var i = 0; i < 7; ++i) {
-      var dwarf = { x: x_dwarves + i * x_incr, y: y_dwarves,
+      var dwarf = { x: xs.pick(),
+        y: random_int(Math.floor(world.h * 0.25), Math.floor(world.h * 0.75)),
         elem: $circle({ r: world.sz * 0.4, fill: palette.green }) };
       dwarf.elem.setAttribute("cx", (dwarf.x + 0.5) * world.sz);
       dwarf.elem.setAttribute("cy", (dwarf.y + 0.5) * world.sz);
