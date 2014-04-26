@@ -5,7 +5,9 @@
   <svg viewBox="-620 -620 1240 1240">
     <circle id="hole" fill="#000"/>
     <text id="score" text-anchor="middle" alignment-baseline="middle"
-      fill="yellow" font-family="Futura, Helvetica, sans-serif"/>
+      fill="#f8f9f0" font-family="Futura, Helvetica, sans-serif" font-size="48">
+      Click to start
+    </text>
     <g id="stars"/>
   </svg>
   <script xlink:href="flexo.js"/>
